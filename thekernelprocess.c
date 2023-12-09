@@ -6,49 +6,166 @@
 #include <sys/ipc.h>
 #include <sys/msg.h>
 #include <signal.h>
-int msg_up, msg_down;
-int clk = 0;
+#include <stdbool.h>  // Added for bool type
+#include <pthread.h>
 
-struct msg_buffer 
-{
-    long msg_type; 
+int msg_up, msg_down, msg_up_PK, msg_down_PK;
+int clk = 0;
+pid_t disk_id;
+
+struct msg_buffer {
+    long msg_type;
     char msg_text[64];
 };
-void requestDiskStatus(pid_t disk_pid) {
-    kill(disk_pid, SIGUSR1);
+
+struct pid_msg {
+    long msg_type;
+    pid_t disk_pid;
+};
+
+typedef struct {
+    long msg_type;
+    bool status;
+} status_msg;
+
+void requestDiskStatus() {
+    // Send SIGUSR1 signal to disk process to request status
+    kill(disk_id, SIGUSR1);
 }
+
+// Signal handler for updating the clock
+void sig_handler(int signum) {
+    clk++;  // Increment the clock
+}
+
+void handleAddRequest(struct msg_buffer* request, FILE* log_file) {
+    struct msg_buffer availableslots;
+    requestDiskStatus();
+
+    // Receive available slots message from disk process
+    int a = msgrcv(msg_up, &availableslots, sizeof(availableslots.msg_text), 42, 0);
+    if (a == -1) {
+        perror("Error receiving Disk status");
+        exit(EXIT_FAILURE);
+    }
+
+    if (availableslots.msg_text[0] != '0') {  // Check if there are available slots
+        // Send the data to the disk to be added
+        msgsnd(msg_up, request, sizeof(request->msg_text), 0);
+
+        // Send a message to the process indicating successful ADD
+        struct msg_buffer response;
+        response.msg_type = 0;
+        strcpy(response.msg_text, "successful ADD. Data added to storage.");
+        msgsnd(msg_down_PK, &response, sizeof(response.msg_text), 0);
+
+        // Log the operation in the log file
+        fprintf(log_file, "Time: %d, Operation: Add, Data: %s\n", clk, request->msg_text);
+    } else {
+        // Send a message to the process indicating that the request can't be handled
+        struct msg_buffer response;
+        response.msg_type = 2;
+        strcpy(response.msg_text, "The request can't be handled.");
+        msgsnd(msg_down_PK, &response, sizeof(response.msg_text), 0);
+    }
+}
+
+void handleDelRequest(struct msg_buffer* request, FILE* log_file) {
+    // Send a message to the Disk Process indicating data deletion
+    struct msg_buffer msg_send;
+    msg_send.msg_type = 1;  // You can define message types as needed
+
+    // Send the message to the Disk Process (down_queue)
+    if (msgsnd(msg_down, &msg_send, sizeof(msg_send.msg_text), 0) == -1) {
+        perror("Error sending message to Disk Process");
+    }
+
+    // Receive message from disk process indicating the result of deletion
+    struct msg_buffer DiskDelete;
+    int a = msgrcv(msg_up, &DiskDelete, sizeof(DiskDelete.msg_text), 0, 0);
+    if (a == -1) {
+        perror("Error receiving Disk status");
+        exit(EXIT_FAILURE);
+    }
+
+    if (DiskDelete.msg_type == 1) {  // Successful DEL
+        // Send a message to the process indicating successful DEL
+        struct msg_buffer response;
+        response.msg_type = 1;
+        strcpy(response.msg_text, "successful DEL.");
+        msgsnd(msg_down_PK, &response, sizeof(response.msg_text), 0);
+
+        // Log the operation in the log file
+        fprintf(log_file, "Time: %d, Operation: Del, Data: %s\n", clk, request->msg_text);
+    } else if (DiskDelete.msg_type == 3) {  // Unable to DEL
+        // Send a message to the process indicating unable to DEL
+        struct msg_buffer response;
+        response.msg_type = 3;
+        strcpy(response.msg_text, "unable to DEL.");
+        msgsnd(msg_down_PK, &response, sizeof(response.msg_text), 0);
+    }
+}
+
+// Thread function for sending SIGUSR2 every second
+void* periodic_signal_sender(void* arg) {
+    while (1) {
+        sleep(1);
+        kill(getpid(), SIGUSR2);
+    }
+    return NULL;
+}
+
 int main() {
-    //******************** disk kernel ****************************//
+    // Signal setup for clock updates
+    signal(SIGUSR2, sig_handler);
+
+    //******************** Disk Kernel Message Queues ****************************//
     key_t up_key = ftok("Diskkernel", 'U');
     key_t down_key = ftok("Diskkernel", 'D');
     int up_queue = msgget(up_key, IPC_CREAT | 0666);
     int down_queue = msgget(down_key, IPC_CREAT | 0666);
-    //******************** process kernel ****************************//
+    msg_up = up_queue;
+    msg_down = down_queue;
+
+    //******************** Process Kernel Message Queues ****************************//
     key_t up_key_PK = ftok("processkernel", 'U');
     key_t down_key_PK = ftok("processkernel", 'D');
     int up_queue_PK = msgget(up_key_PK, IPC_CREAT | 0666);
     int down_queue_PK = msgget(down_key_PK, IPC_CREAT | 0666);
-    //********************************************************//
+    msg_up_PK = up_queue_PK;
+    msg_down_PK = down_queue_PK;
 
-    if (up_queue == -1 || down_queue == -1) {
-        perror("Error in creating message queue");
+    if (up_queue == -1 || down_queue == -1 || up_queue_PK == -1 || down_queue_PK == -1) {
+        perror("Error in creating message queues");
         exit(EXIT_FAILURE);
     }
 
-  
-    while (1)
-    {
-    
-        
-        
-    
-     
+    // Compile the disk process
+    char command[256];
+    snprintf(command, sizeof(command), "gcc diskprocess.c -o diskprocess");
 
-  
-      
+    printf("Executing command: %s\n", command);
+    int systemResult = system(command);
+    printf("System result: %d\n", systemResult);
+
+    if (systemResult == -1) {
+        perror("Error executing Disk Process");
+        exit(EXIT_FAILURE);
     }
 
-    msgctl(up_queue, IPC_RMID, NULL);
-    msgctl(down_queue, IPC_RMID, NULL);
-   return 0 ;
+    // Receive the Disk PID from the Disk Kernel
+    struct pid_msg received_msg;
+    int b = msgrcv(down_queue, &received_msg, sizeof(received_msg.disk_pid), 4, 0);
+    if (b == -1) {
+        perror("Error receiving Disk PID");
+        exit(EXIT_FAILURE);
+    }
+    disk_id = received_msg.disk_pid;
+
+    // Rest of your kernel process code...
+    printf("Kernel Process: Received Disk PID: %d\n", disk_id);
+
+    // Cleanup: Remove the message queues (optional)
+
+    return 0;
 }
