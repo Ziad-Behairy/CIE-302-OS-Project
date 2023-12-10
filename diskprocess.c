@@ -38,7 +38,11 @@ bool addMessage(Storage *storage, const char *message) {
     }
     return false;
 }
-bool deleteMessage(Storage *storage, int slotIndex) {
+bool deleteMessage(Storage *storage, const char *slotIndexchar) {
+
+    char justslotIndex=slotIndexchar[2];
+
+    int slotIndex = justslotIndex-'0' ; // Convert the whole string to an integer
     if (slotIndex < 0 || slotIndex >= MAX_SLOTS) {
         return false; // Slot index out of range
     }
@@ -53,6 +57,7 @@ bool deleteMessage(Storage *storage, int slotIndex) {
     }
     return false; // Slot was already empty
 }
+
 
 int availableSlots(const Storage *storage) {
     return MAX_SLOTS - storage->used_slots;
@@ -121,46 +126,46 @@ int main()
         exit(EXIT_FAILURE);
     }
 
-    // while (1) {
-    //     if (msgrcv(msg_down, &msg_recv, sizeof(msg_recv.msg_text), 0, 0) == -1) 
-    //     {
-    //         perror("msgrcv");
-    //         exit(1);
-    //     }
-    //     if(msg_recv.msg_type==1) // recived add from the kernel 
-    //     {
+    while (1) {
+        if (msgrcv(msg_down, &msg_recv, sizeof(msg_recv.msg_text), 0, 0) == -1) 
+        {
+            perror("msgrcv");
+            exit(1);
+        }
+        if(msg_recv.msg_type==1) // received add from the kernel 
+        {
             
-    //         if(addMessage(&storage,msg_recv.msg_text)==true) 
-    //         {
-    //          msg_send.msg_type =="0";
-    //          strcpy(msg_send.msg_text, "adding operation done successfully");
-    //          msgsnd(msg_down, &msg_send, sizeof(msg_send.msg_text), 0);
-    //         }
-    //         else 
-    //         {
-    //         msg_send.msg_type =="2";
-    //          strcpy(msg_send.msg_text, "adding operation failure");
-    //          msgsnd(msg_down, &msg_send, sizeof(msg_send.msg_text), 0);
-    //         }
+            if(addMessage(&storage,msg_recv.msg_text)==true) 
+            {
+             msg_send.msg_type =0;
+             strcpy(msg_send.msg_text, "Adding operation done successfully");
+             msgsnd(msg_down, &msg_send, sizeof(msg_send.msg_text), 0);
+            }
+            else 
+            {
+            msg_send.msg_type =2;
+             strcpy(msg_send.msg_text, "Adding operation failure");
+             msgsnd(msg_down, &msg_send, sizeof(msg_send.msg_text), 0);
+            }
 
-    //     }
-    //     else if(msg_recv.msg_type==2) // recived deletion from the kernel 
-    //     {
+        }
+        else if(msg_recv.msg_type==2) // recived deletion from the kernel 
+        {
             
-    //         if(deleteMessage(&storage,msg_recv.msg_text)==true) 
-    //         {
-    //            msg_send.msg_type =="1";
+            if(deleteMessage(&storage,msg_recv.msg_text)==true) 
+            {
+               msg_send.msg_type =1;
          
-    //          strcpy(msg_send.msg_text, "deleting operation done successfully");
-    //          msgsnd(msg_down, &msg_send, sizeof(msg_send.msg_text), 0);
-    //         }
-    //         else 
-    //         {
-    //         msg_send.msg_type =="3";
-    //          strcpy(msg_send.msg_text, "deleting operation failure");
-    //          msgsnd(msg_down, &msg_send, sizeof(msg_send.msg_text), 0);
-    //         }
-    //     }
+             strcpy(msg_send.msg_text, "Deleting operation done successfully");
+             msgsnd(msg_down, &msg_send, sizeof(msg_send.msg_text), 0);
+            }
+            else 
+            {
+            msg_send.msg_type =3;
+             strcpy(msg_send.msg_text, "Deleting operation failure");
+             msgsnd(msg_down, &msg_send, sizeof(msg_send.msg_text), 0);
+            }
+        }
        
     //     // Process request...
     //     // Implement logic for ADD, DELETE, STATUS operations

@@ -52,19 +52,32 @@ void handleAddRequest(struct msg_buffer* request, FILE* log_file) {
     if (availableslots.msg_text[0] != '0') {  // Check if there are available slots
         // Send the data to the disk to be added
         msgsnd(msg_up, request, sizeof(request->msg_text), 0);
+        // Receive message from disk process indicating the result of addition
+        struct msg_buffer DiskAdd; // received ADD from disk
+         if (msgrcv(msg_up, &DiskAdd, sizeof(DiskAdd.msg_text), 0, 0) == -1) 
+        {
+            perror("msgrcv");
+            exit(1);
+        }
 
-        // Send a message to the process indicating successful ADD
-        struct msg_buffer response;
-        response.msg_type = 0;
-        strcpy(response.msg_text, "successful ADD. Data added to storage.");
-        msgsnd(msg_down_PK, &response, sizeof(response.msg_text), 0);
-
+        // Send a message to the process indicating successful or unable to ADD
+ 
+            msgsnd(msg_down_PK, &DiskAdd, sizeof(response.msg_text), 0);
+        
+        //open log file
+        // Open the log file
+        FILE* log_file = fopen("log.txt", "a");
+        if (log_file == NULL) {
+            perror("Error opening log file");
+            exit(EXIT_FAILURE);
+        }
         // Log the operation in the log file
-        fprintf(log_file, "Time: %d, Operation: Add, Data: %s\n", clk, request->msg_text);
-    } else {
+        fprintf(log_file, "Time: %d, Action: %s, Data: %s\n", clk, DiskAdd.msg_text ,request->msg_text);
+    } 
+    else {
         // Send a message to the process indicating that the request can't be handled
         struct msg_buffer response;
-        response.msg_type = 2;
+        response.msg_type = 0;
         strcpy(response.msg_text, "The request can't be handled.");
         msgsnd(msg_down_PK, &response, sizeof(response.msg_text), 0);
     }
@@ -73,7 +86,7 @@ void handleAddRequest(struct msg_buffer* request, FILE* log_file) {
 void handleDelRequest(struct msg_buffer* request, FILE* log_file) {
     // Send a message to the Disk Process indicating data deletion
     struct msg_buffer msg_send;
-    msg_send.msg_type = 1;  // You can define message types as needed
+    msg_send.msg_type = 2;  
 
     // Send the message to the Disk Process (down_queue)
     if (msgsnd(msg_down, &msg_send, sizeof(msg_send.msg_text), 0) == -1) {
@@ -88,22 +101,13 @@ void handleDelRequest(struct msg_buffer* request, FILE* log_file) {
         exit(EXIT_FAILURE);
     }
 
-    if (DiskDelete.msg_type == 1) {  // Successful DEL
-        // Send a message to the process indicating successful DEL
-        struct msg_buffer response;
-        response.msg_type = 1;
-        strcpy(response.msg_text, "successful DEL.");
-        msgsnd(msg_down_PK, &response, sizeof(response.msg_text), 0);
+    //send message to the process to indicate the result of deletion (msg_down_PK)
+   
+     msgsnd(msg_down_PK, &DiskDelete, sizeof(response.msg_text), 0);
 
-        // Log the operation in the log file
-        fprintf(log_file, "Time: %d, Operation: Del, Data: %s\n", clk, request->msg_text);
-    } else if (DiskDelete.msg_type == 3) {  // Unable to DEL
-        // Send a message to the process indicating unable to DEL
-        struct msg_buffer response;
-        response.msg_type = 3;
-        strcpy(response.msg_text, "unable to DEL.");
-        msgsnd(msg_down_PK, &response, sizeof(response.msg_text), 0);
-    }
+        // Log the operation delete  in the log file
+        fprintf(log_file, "Time: %d, Action: %s, Data: %s\n", clk, DiskDelete.msg_text,request->msg_text);
+  
 }
 
 // Thread function for sending SIGUSR2 every second
@@ -165,7 +169,32 @@ int main() {
     // Rest of your kernel process code...
     printf("Kernel Process: Received Disk PID: %d\n", disk_id);
 
-    // Cleanup: Remove the message queues (optional)
+    while (1)
+    {
+        // Receive message from process
+        struct msg_buffer received_msg; // received message from process
+        if (msgrcv(up_queue_PK, &received_msg, sizeof(received_msg.msg_text), 0, 0) == -1) 
+        {
+            perror("Error receiving message from process");
+            exit(1);
+        }
+        // Check the operation type
+        if (received_msg.msg_text[0] == 'A') {  // ADD
+            handleAddRequest(&received_msg, log_file);
+        } else if (received_msg.msg_text[0] == 'D') {  // DEL
+            handleDelRequest(&received_msg, log_file);
+        } else {
+            // Send a message to the process indicating that the request can't be handled
+            struct msg_buffer response;
+            response.msg_type = 2;
+            strcpy(response.msg_text, "The request can't be handled.");
+            msgsnd(msg_down_PK, &response, sizeof(response.msg_text), 0);
+        }
+
+        // Close the log file
+        fclose(log_file);
+    }
+    
 
     return 0;
 }
