@@ -25,6 +25,18 @@ void waitForTime( int timeslice)
 {
   sleep(timeslice);
 }
+void waitopperation( int slice) 
+{
+    int time = clk ;
+    while (1) 
+    {
+        if (clk>=time+slice) 
+        {
+            break; // Break the loop when the desired time has passed
+        }
+    }
+}
+
 
 void initializeStorage(Storage *storage) {
     for (int i = 0; i < MAX_SLOTS; ++i) {
@@ -108,10 +120,6 @@ void sigusr1_handler(int signum)
     printf("clk now is %d \n",clk);
     
  }
- bool wait_3_sec(int startTime, int currentTime) { // this fun make the adding process take 3 sec to done then send the response without affect the clk 
-   printf("wait %d",currentTime - startTime );
-    return (currentTime - startTime >= 3);
-}
 
 int main() 
 {
@@ -137,8 +145,8 @@ int main()
 
     msg_buffer msg_recv; // message got from the kernel to down queue 
     msg_buffer msg_send; // message send for success or failure 
-    int startTime = -1; // Initialize to -1 indicating no operation in progress
-    bool isAdding = false; // Flag to indicate if an add operation is in progress
+
+
 // Send the PID to the kernel process
     if (msgsnd(up_queue, &pid_message, sizeof(pid_message.disk_pid), !IPC_NOWAIT) == -1) {
         perror("Error sending Disk PID");
@@ -170,6 +178,7 @@ int main()
              msg_send.msg_type =330;
              printf("Adding operation done successfully");
              strcpy(msg_send.msg_text, "Adding operation done successfully");
+             waitopperation(3);
              //waitforoperation(3);
              // waitForTime(3); // amin need to ask eng omnia to check it
              printf("test3\n");
@@ -179,7 +188,7 @@ int main()
             else 
             {
             msg_send.msg_type =2;
-            printf("Adding operation failure");
+            printf("Adding operation failure successfully");
 
             strcpy(msg_send.msg_text, "Adding operation failure");
              msgsnd(msg_down, &msg_send, sizeof(msg_send.msg_text), 0);
@@ -189,21 +198,32 @@ int main()
         else if(msg_recv.msg_type==2) // recived deletion from the kernel 
         {
             
+            printf("start no delete \n");
             if(deleteMessage(&storage,msg_recv.msg_text)==true) 
             {
-               msg_send.msg_type =111;
-         
+             msg_send.msg_type =111;
+             printf("inside delete \n");
              strcpy(msg_send.msg_text, "Deleting operation done successfully");
              //waitforoperation(1);
              msgsnd(msg_down, &msg_send, sizeof(msg_send.msg_text), 0);
             }
             else 
             {
-            msg_send.msg_type =3;
+            msg_send.msg_type =111;
+            printf("no thing to delete \n");
              strcpy(msg_send.msg_text, "Deleting operation failure");
              msgsnd(msg_down, &msg_send, sizeof(msg_send.msg_text), 0);
             }
         }
+        else
+        {
+
+        }
+        // else                            --------- awaaad----------
+        // {
+        //   printf("error in the deletionrequest %ld \n",msg_recv.msg_type);
+        //   printf("error in the deletionrequest %s \n",msg_recv.msg_text);
+        // }
        
     //     // Process request...
     //     // Implement logic for ADD, DELETE, STATUS operations
