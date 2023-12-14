@@ -21,10 +21,7 @@ struct ClkMessage {
     long msg_type;
     int clk;
 };
-void waitForTime( int timeslice) 
-{
-  sleep(timeslice);
-}
+
 void waitopperation( int slice) 
 {
     int time = clk ;
@@ -176,10 +173,12 @@ int main()
             {
              printf("test2\n");
              msg_send.msg_type =330;
-             printf("Adding operation done successfully");
+             printf("Adding operation done successfully\n");
              strcpy(msg_send.msg_text, "Adding operation done successfully");
-             waitopperation(3);
-             //waitforoperation(3);
+             printf("message isn %s \n",msg_send.msg_text);
+
+             //waitopperation(3);
+             //waitopperation(3);
              // waitForTime(3); // amin need to ask eng omnia to check it
              printf("test3\n");
              msgsnd(msg_down, &msg_send, sizeof(msg_send.msg_text), 0);
@@ -204,8 +203,9 @@ int main()
              msg_send.msg_type =111;
              printf("inside delete \n");
              strcpy(msg_send.msg_text, "Deleting operation done successfully");
-             //waitforoperation(1);
+             //waitopperation(1);
              msgsnd(msg_down, &msg_send, sizeof(msg_send.msg_text), 0);
+             printf("send action : to the disk %s \n",msg_send.msg_text);
             }
             else 
             {
