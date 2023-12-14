@@ -108,6 +108,10 @@ void sigusr1_handler(int signum)
     printf("clk now is %d \n",clk);
     
  }
+ bool wait_3_sec(int startTime, int currentTime) { // this fun make the adding process take 3 sec to done then send the response without affect the clk 
+   printf("wait %d",currentTime - startTime );
+    return (currentTime - startTime >= 3);
+}
 
 int main() 
 {
@@ -133,8 +137,8 @@ int main()
 
     msg_buffer msg_recv; // message got from the kernel to down queue 
     msg_buffer msg_send; // message send for success or failure 
-
-
+    int startTime = -1; // Initialize to -1 indicating no operation in progress
+    bool isAdding = false; // Flag to indicate if an add operation is in progress
 // Send the PID to the kernel process
     if (msgsnd(up_queue, &pid_message, sizeof(pid_message.disk_pid), !IPC_NOWAIT) == -1) {
         perror("Error sending Disk PID");
@@ -175,7 +179,7 @@ int main()
             else 
             {
             msg_send.msg_type =2;
-            printf("Adding operation failure successfully");
+            printf("Adding operation failure");
 
             strcpy(msg_send.msg_text, "Adding operation failure");
              msgsnd(msg_down, &msg_send, sizeof(msg_send.msg_text), 0);
