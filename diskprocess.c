@@ -17,6 +17,15 @@ typedef struct {
     char data[MAX_SLOTS][SLOT_SIZE];
     int used_slots;
 } Storage;
+struct ClkMessage {
+    long msg_type;
+    int clk;
+};
+void waitForTime( int timeslice) 
+{
+  sleep(timeslice);
+}
+
 void initializeStorage(Storage *storage) {
     for (int i = 0; i < MAX_SLOTS; ++i) {
         storage->data[i][0] = '\0'; // Initialize all slots as empty
@@ -93,18 +102,23 @@ void sigusr1_handler(int signum)
     msgsnd(msg_up, &msg_handlersend, sizeof(msg_handlersend.msg_text), 0) ;
 
  }
+ void siguser2_handler(int signum)
+ {
+    clk++;
+    printf("clk now is %d \n",clk);
+    
+ }
 
 int main() 
 {
-
-
      signal(SIGUSR1, sigusr1_handler);
+     signal(SIGUSR2, siguser2_handler);
 
 
     initializeStorage(&storage);
     //----------------
-    key_t up_key = ftok("Diskkernel", 'U');
-    key_t down_key = ftok("Diskkernel", 'D');
+    key_t up_key = 102;
+    key_t down_key = 103;
     int up_queue = msgget(up_key, IPC_CREAT | 0666);
     int down_queue = msgget(down_key, IPC_CREAT | 0666);
     msg_up = up_queue;
@@ -120,31 +134,50 @@ int main()
     msg_buffer msg_recv; // message got from the kernel to down queue 
     msg_buffer msg_send; // message send for success or failure 
 
+
 // Send the PID to the kernel process
-    if (msgsnd(down_queue, &pid_message, sizeof(pid_message.disk_pid), 0) == -1) {
+    if (msgsnd(up_queue, &pid_message, sizeof(pid_message.disk_pid), !IPC_NOWAIT) == -1) {
         perror("Error sending Disk PID");
         exit(EXIT_FAILURE);
     }
+    // //**********************************get clk *********************************//
+    // struct ClkMessage messageclk;
+    //    int diskid = msgrcv(up_queue, &messageclk, sizeof(messageclk.clk), 8, 0);
+    // if (diskid== -1) {
+    //     perror("Error receiving Disk PID");
+    //     exit(EXIT_FAILURE);
+    // }
+    // clk=messageclk.clk;
+    // printf("revieved clk from the kernel %d",clk);
+    // //**********************************************************************************//
 
     while (1) {
-        if (msgrcv(msg_down, &msg_recv, sizeof(msg_recv.msg_text), 0, 0) == -1) 
-        {
-            perror("msgrcv");
-            exit(1);
-        }
+        int operationfromthekernel = msgrcv(msg_down, &msg_recv, sizeof(msg_recv.msg_text), 0 , IPC_NOWAIT) == -1 ;
+        
+      
+      
         if(msg_recv.msg_type==1) // received add from the kernel 
         {
             
+              printf("test1\n");
             if(addMessage(&storage,msg_recv.msg_text)==true) 
             {
-             msg_send.msg_type =0;
+             printf("test2\n");
+             msg_send.msg_type =330;
+             printf("Adding operation done successfully");
              strcpy(msg_send.msg_text, "Adding operation done successfully");
+             //waitforoperation(3);
+             // waitForTime(3); // amin need to ask eng omnia to check it
+             printf("test3\n");
              msgsnd(msg_down, &msg_send, sizeof(msg_send.msg_text), 0);
+             printf("test4\n");
             }
             else 
             {
             msg_send.msg_type =2;
-             strcpy(msg_send.msg_text, "Adding operation failure");
+            printf("Adding operation failure successfully");
+
+            strcpy(msg_send.msg_text, "Adding operation failure");
              msgsnd(msg_down, &msg_send, sizeof(msg_send.msg_text), 0);
             }
 
@@ -154,9 +187,10 @@ int main()
             
             if(deleteMessage(&storage,msg_recv.msg_text)==true) 
             {
-               msg_send.msg_type =1;
+               msg_send.msg_type =111;
          
              strcpy(msg_send.msg_text, "Deleting operation done successfully");
+             //waitforoperation(1);
              msgsnd(msg_down, &msg_send, sizeof(msg_send.msg_text), 0);
             }
             else 
@@ -169,7 +203,7 @@ int main()
        
     //     // Process request...
     //     // Implement logic for ADD, DELETE, STATUS operations
-    // }
+    }
 
     return 0;
 }
