@@ -143,7 +143,7 @@ int main()
         printf("epen the file\n");
     char line[100];
     int time;
-    char operation[5]; // "ADD" or "DEL"
+    char operation[10]; // "ADD" or "DEL"
     char data[SLOT_SIZE]; // Message content
      
         while (fgets(line, sizeof(line), file) != NULL) 
