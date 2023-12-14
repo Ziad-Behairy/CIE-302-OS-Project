@@ -51,21 +51,21 @@ void sig_handler(int signum) {
 }
 
 void handleAddRequest(struct msg_buffer* request, FILE* log_file) {
-
+       
      fprintf(log_file, "At time = %d, request to add \"%s\" from P1\n", clk,request->msg_text); // Log the operation request in the log file
     struct msg_buffer availableslots;
     requestDiskStatus();             // dont forget to remove the comment******awad
+  
     fprintf(log_file, "At time = %d, sent status request to Disk\n", clk); //log the sending status of the request to the disk
-    // Receive available slots message from disk process
+  // Receive available slots message from disk process
     int a = msgrcv(msg_up, &availableslots, sizeof(availableslots.msg_text), 42, 0);
     if (a == -1) {
         perror("Error receiving Disk status");
         exit(EXIT_FAILURE);
     }
     fprintf(log_file, "At time = %d,  Disk status =  %s empty slots\n", clk, availableslots.msg_text); //log the number of available slots in the log file
-   
+
     if (availableslots.msg_text[0] != '0') {  // Check if there are available slots
-       
         // Send the data to the disk to be added
         request->msg_type=1;
         msgsnd(msg_down, request, sizeof(request->msg_text), 0);
@@ -73,20 +73,15 @@ void handleAddRequest(struct msg_buffer* request, FILE* log_file) {
         // Receive message from disk process indicating the result of addition
         struct msg_buffer DiskAdd; 
         // received ADD status from disk
-         if (msgrcv(msg_down, &DiskAdd, sizeof(DiskAdd.msg_text),330, 0) == -1) 
-        {
-            perror("msgrcv");
-            exit(1);
-        }
-        
-
+         int messagerecive = msgrcv(msg_down, &DiskAdd, sizeof(DiskAdd.msg_text),330, IPC_NOWAIT) ;
+       
         // Send a message to the process indicating successful or unable to ADD
         DiskAdd.msg_type=502;
         msgsnd(msg_down_PK, &DiskAdd, sizeof(DiskAdd.msg_text), 0);  
         printf("send status to the process \n");
         //process need to recive it  --  ahmed
         //log the status of the request in the log file
-        if(DiskAdd.msg_text[17]=='d')
+       if(DiskAdd.msg_text[17]=='d')
         {
            fprintf(log_file, "At time = %d,send success to P1\n", clk);//log the success of the request in the log file
         }
@@ -95,7 +90,7 @@ void handleAddRequest(struct msg_buffer* request, FILE* log_file) {
             fprintf(log_file, "At time = %d,send failed to P1\n", clk); //log the failure of the request in the log file
         }
     
-        fflush(log_file);//flush the log file
+        fflush(log_file);
 
     } 
     else {
@@ -106,22 +101,23 @@ void handleAddRequest(struct msg_buffer* request, FILE* log_file) {
         msgsnd(msg_down_PK, &response, sizeof(response.msg_text), 0);
     }
 }
+
 void handleDelRequest(struct msg_buffer* request, FILE* log_file) {
     // Send a message to the Disk Process indicating data deletion
     // struct msg_buffer msg_send;  
-   //log the operation request in the log file
-    fprintf(log_file, "At time = %d, request to delete slot\"%s\" from P1\n", clk,request->msg_text);
     // msg_send.msg_type = 2;  
+       //log the operation request in the log file
+    fprintf(log_file, "At time = %d, request to delete slot\"%s\" from P1\n", clk,request->msg_text);
     request->msg_type=2;
 
     // Send the message to the Disk Process (down_queue)
-    if (msgsnd(msg_down, &request, sizeof(request->msg_text), 0) == -1) {
+    if (msgsnd(msg_down, request, sizeof(request->msg_text), 0) == -1) {
         perror("Error sending message to Disk Process");
     }
 
     // Receive message from disk process indicating the result of deletion
     struct msg_buffer DiskDelete;
-    int a = msgrcv(msg_down, &DiskDelete, sizeof(DiskDelete.msg_text), 111, 0);
+    int a = msgrcv(msg_down, &DiskDelete, sizeof(DiskDelete.msg_text), 111, IPC_NOWAIT); //---------------------- edit ahmed -------------------
     if (a == -1) {
         perror("Error receiving Disk status");
         //exit(EXIT_FAILURE);
@@ -131,6 +127,7 @@ void handleDelRequest(struct msg_buffer* request, FILE* log_file) {
     DiskDelete.msg_type=502;
     msgsnd(msg_down_PK, &DiskDelete, sizeof(DiskDelete.msg_text), 0);
 
+    // Log the operation delete in the log file
     // Log the status of the delete request in the log file
     if(DiskDelete.msg_text[19]=='d')
     {
@@ -140,9 +137,9 @@ void handleDelRequest(struct msg_buffer* request, FILE* log_file) {
     {
         fprintf(log_file, "At time = %d,send failed to P1\n", clk); //log the failure of the request in the log file
     }
-    fflush(log_file); //flush the log file (clear the buffer)
-}
+    fflush(log_file);//flush the log file (clear the buffer)
 
+}
 
 // // Thread function for sending SIGUSR2 every second
 // void* periodic_signal_sender(void* arg) {
@@ -264,10 +261,11 @@ int main()
     while (1)
     {
         sleep(1);
-        clk++;
 
         kill(disk_id,SIGUSR2);
         kill(processid,SIGUSR2);
+        clk++;
+
         printf("%d \n",clk); 
 
         // Receive message from process
