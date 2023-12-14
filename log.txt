@@ -1,18 +1,1 @@
-Time: 2, Action: Adding operation done successfully, Data: A omar adham ahmed time
-Time: 13, Action: Adding operation done successfully, Data: A third add
-Time: 18, Action: Adding operation done successfully, Data: A fourth add
-Time: 2, Action: Adding operation done successfully, Data: A omar adham ahmed time
-Time: 13, Action: Adding operation done successfully, Data: A third add
-Time: 18, Action: Adding operation done successfully, Data: A fourth add
-At time = 2, request to add "A omar adham ahmed time" from P1
-At time = 2, sent status request to Disk
-At time = 2,  Disk status =  10 empty slots
-At time = 2,send success to P1
-At time = 13, request to add "A third add" from P1
-At time = 13, sent status request to Disk
-At time = 13,  Disk status =  8 empty slots
-At time = 13,send success to P1
-At time = 2, request to add "A omar adham ahmed time" from P1
-At time = 2, sent status request to Disk
-At time = 2,  Disk status =  10 empty slots
-At time = 2,send success to P1
+
