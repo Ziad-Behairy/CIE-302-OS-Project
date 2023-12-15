@@ -149,16 +149,6 @@ int main()
         perror("Error sending Disk PID");
         exit(EXIT_FAILURE);
     }
-    // //**********************************get clk *********************************//
-    // struct ClkMessage messageclk;
-    //    int diskid = msgrcv(up_queue, &messageclk, sizeof(messageclk.clk), 8, 0);
-    // if (diskid== -1) {
-    //     perror("Error receiving Disk PID");
-    //     exit(EXIT_FAILURE);
-    // }
-    // clk=messageclk.clk;
-    // printf("revieved clk from the kernel %d",clk);
-    // //**********************************************************************************//
 
     while (1) {
         int operationfromthekernel = msgrcv(msg_down, &msg_recv, sizeof(msg_recv.msg_text), 0 , IPC_NOWAIT) == -1 ;
@@ -219,14 +209,6 @@ int main()
         {
 
         }
-        // else                            --------- awaaad----------
-        // {
-        //   printf("error in the deletionrequest %ld \n",msg_recv.msg_type);
-        //   printf("error in the deletionrequest %s \n",msg_recv.msg_text);
-        // }
-       
-    //     // Process request...
-    //     // Implement logic for ADD, DELETE, STATUS operations
     }
 
     return 0;

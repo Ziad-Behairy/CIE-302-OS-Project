@@ -16,7 +16,7 @@ void waitForTime( int starttime)
 {
     while (1) 
     {
-        if (clk>=starttime) 
+        if (clk>starttime) 
         {
             break; // Break the loop when the desired time has passed
         }
@@ -47,10 +47,10 @@ void formulateAndAddRequest(int up_queue_PK, int time, char* operation, char* da
 
     if (strcmp(operation, "ADD") == 0) 
     {
-    snprintf(request.data, SLOT_SIZE, "A1 %s", data );
+    snprintf(request.data, SLOT_SIZE, "A3 %s", data );
         request.mtype = 1; 
     } else if (strcmp(operation, "DEL") == 0) {
-        snprintf(request.data, SLOT_SIZE, "D1 %s", data );
+        snprintf(request.data, SLOT_SIZE, "D3 %s", data );
         request.mtype = 2; 
     } else {
         fprintf(stderr, "Invalid operation type: %s\n", operation);
@@ -105,7 +105,7 @@ int main()
     pid_t process_pid = getpid();
 
     struct pid_msg process__id;
-    process__id.msg_type = 001; // Message type for PID communication
+    process__id.msg_type = 003; // Message type for PID communication
     process__id.pid = process_pid;
 
 // Send the PID to the kernel process
@@ -135,7 +135,7 @@ int main()
 // //**************************************************************************/
  
 
-    FILE* file = fopen("test.txt", "r");
+    FILE* file = fopen("p3.txt", "r");
     if (file == NULL) {
         perror("Error opening file");
         exit(EXIT_FAILURE);

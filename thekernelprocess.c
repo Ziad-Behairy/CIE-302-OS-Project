@@ -8,12 +8,12 @@
 #include <signal.h>
 #include <stdbool.h>
 
- 
-
 int msg_up, msg_down, msg_up_PK, msg_down_PK;
 int clk;
 pid_t disk_id;
-pid_t processid;
+pid_t process1_id;
+pid_t process2_id;
+pid_t process3_id;
 FILE* log_file;
 
 struct msg_buffer {
@@ -51,15 +51,19 @@ void sig_handler(int signum) {
 }
 
 void handleAddRequest(struct msg_buffer* request, FILE* log_file) {
+
+    fprintf(log_file, "At time = %d, request to add \"%s\" from P%c\n", clk-1,request->msg_text+3,request->msg_text[1]); // Log the operation request in the log file
     struct msg_buffer availableslots;
     requestDiskStatus();             // dont forget to remove the comment******awad
+        fprintf(log_file, "At time = %d, sent status request to Disk\n", clk-1); //log the sending status of the request to the disk
+    int clkAdd=clk+2;
     // Receive available slots message from disk process
-
     int a = msgrcv(msg_up, &availableslots, sizeof(availableslots.msg_text), 42, 0);
     if (a == -1) {
         perror("Error receiving Disk status");
         exit(EXIT_FAILURE);
     }
+    fprintf(log_file, "At time = %d,  Disk status =  %s empty slots\n", clk-1, availableslots.msg_text); //log the number of available slots in the log file
 
     if (availableslots.msg_text[0] != '0') {  // Check if there are available slots
         // Send the data to the disk to be added
@@ -71,16 +75,21 @@ void handleAddRequest(struct msg_buffer* request, FILE* log_file) {
         // received ADD status from disk
 
          int messagerecive = msgrcv(msg_down, &DiskAdd, sizeof(DiskAdd.msg_text),330, 0) ; //-------------------------------------------test ipcnowait --------------------
-         printf("message is%s \n",DiskAdd.msg_text);
+         printf("message  index done is 17 %c \n",DiskAdd.msg_text[17]);
        
         // Send a message to the process indicating successful or unable to ADD
         DiskAdd.msg_type=502;
         msgsnd(msg_down_PK, &DiskAdd, sizeof(DiskAdd.msg_text), 0);  
         printf("send status to the process \n");
-        //process need to recive it  --  ahmed
-
-        // Log the operation in the log fileS
-        fprintf(log_file, "Time: %d, Action: %s, Data: %s\n", clk+2, DiskAdd.msg_text, request->msg_text);
+ //log the status of the request in the log file
+       if(DiskAdd.msg_text[17]=='d')
+        {
+           fprintf(log_file, "At time = %d,send success to P%c\n", clkAdd,request->msg_text[1]);//log the success of the request in the log file
+        }
+        else
+        {
+            fprintf(log_file, "At time = %d,send failed to P%c\n", clkAdd,request->msg_text[1]); //log the failure of the request in the log file
+        }
         fflush(log_file);
 
     } 
@@ -94,11 +103,10 @@ void handleAddRequest(struct msg_buffer* request, FILE* log_file) {
 }
 
 void handleDelRequest(struct msg_buffer* request, FILE* log_file) {
-    // Send a message to the Disk Process indicating data deletion
-    // struct msg_buffer msg_send;  
-    // msg_send.msg_type = 2;  
+           //log the operation request in the log file
+    fprintf(log_file, "At time = %d, request to delete slot\"%s\" from P%c\n", clk-1,request->msg_text+3,request->msg_text[1]);
     request->msg_type=2;
-
+    int clkdel=clk+1;
     // Send the message to the Disk Process (down_queue)
     if (msgsnd(msg_down, request, sizeof(request->msg_text), 0) == -1) {
         perror("Error sending message to Disk Process");
@@ -116,21 +124,17 @@ void handleDelRequest(struct msg_buffer* request, FILE* log_file) {
     // Send message to the process to indicate the result of deletion (msg_down_PK)
     DiskDelete.msg_type=502;
     msgsnd(msg_down_PK, &DiskDelete, sizeof(DiskDelete.msg_text), 0);
-
-    // Log the operation delete in the log file
-    fprintf(log_file, "Time: %d, Action: %s, Data: %s\n", clk, DiskDelete.msg_text, request->msg_text);
-    fflush(log_file);
-
+     // Log the status of the delete request in the log file
+    if(DiskDelete.msg_text[19]=='d')
+    {
+       fprintf(log_file, "At time = %d,send success to P%c\n", clkdel,request->msg_text[1]);//log the success of the request in the log file
+    }
+    else
+    {
+        fprintf(log_file, "At time = %d,send failed to P%c\n", clk-1,request->msg_text[1]); //log the failure of the request in the log file
+    }
+    fflush(log_file);//flush the log file (clear the buffer)
 }
-
-// // Thread function for sending SIGUSR2 every second
-// void* periodic_signal_sender(void* arg) {
-//     while (1) {
-//         sleep(1);
-//         kill(getpid(), SIGUSR2);
-//     }
-//     return NULL;
-// }
 
 int main() 
 {
@@ -173,28 +177,11 @@ int main()
     // Compile the disk process
    
     // Receive the Disk PID from the Disk Kernel
-   // struct ClkMessage  sendclkToprocess;
-    //struct ClkMessage  sendclkToDisk;
     struct pid_msgdisk received_diskid;
-    struct pid_msgprocess received_processid;
+    struct pid_msgprocess received_process1id;
+    struct pid_msgprocess received_process2id;
+    struct pid_msgprocess received_process3id;
 
-    // //****************************....clk send *********************/
-    // sendclkToprocess.msg_type = 7; // Message type for PID communication
-    // sendclkToprocess.clk = clk;
-    // sendclkToDisk.msg_type = 8; // Message type for PID communication
-    // sendclkToDisk.clk = clk;
-
-// // Send the clk to the process
-//     if (msgsnd(up_queue_PK, &sendclkToprocess, sizeof(sendclkToprocess.clk), 0) == -1) {
-//         perror("Error sending Disk PID");
-//         exit(EXIT_FAILURE);
-//     }
-// // Send the clk to the process
-//     if (msgsnd(up_queue, &sendclkToDisk, sizeof(sendclkToDisk.clk), 0) == -1) {
-//         perror("Error sending Disk PID");
-//         exit(EXIT_FAILURE);
-//     }
-    
 
   //**********************************get diskid *********************************//
     int diskid = msgrcv(up_queue, &received_diskid, sizeof(received_diskid.disk_pid), 4, 0);
@@ -205,47 +192,45 @@ int main()
     disk_id = received_diskid.disk_pid;
     printf("Kernel Process: Received Disk PID: %d\n", disk_id);
 
-    //**********************************get processid *********************************//
-     int processid = msgrcv(up_queue_PK, &received_processid, sizeof(received_processid.process_pid), 15, !IPC_NOWAIT);
+    //**********************************get process 1 id *********************************//
+     int processid = msgrcv(up_queue_PK, &received_process1id, sizeof(received_process1id.process_pid), 001, !IPC_NOWAIT);
     if (processid== -1) {
         perror("Error receiving process id");
         exit(EXIT_FAILURE);
     }
  
-    processid=received_processid.process_pid;
-    // Rest of your kernel process code...
-    printf("Kernel Process: Received process PID: %d\n", processid);
+    process1_id=received_process1id.process_pid;
 
+    printf("Kernel Process: Received process 1 PID: %d\n", process1_id);
+  //**********************************get process 3 id *********************************//
+     int process2id = msgrcv(up_queue_PK, &received_process2id, sizeof(received_process2id.process_pid), 002, !IPC_NOWAIT);
+    if (process2id== -1) {
+        perror("Error receiving process id");
+        exit(EXIT_FAILURE);
+    }
+ 
+    process2_id=received_process2id.process_pid;
 
-    //-------------------test omar -----------------------
+    printf("Kernel Process: Received process 2 PID: %d\n", process2_id);
+      //**********************************get process 3 id *********************************//
+     int process3id = msgrcv(up_queue_PK, &received_process3id, sizeof(received_process3id.process_pid), 003, !IPC_NOWAIT);
+    if (process3id== -1) {
+        perror("Error receiving process id");
+        exit(EXIT_FAILURE);
+    }
+ 
+    process3_id=received_process3id.process_pid;
 
-    
+    printf("Kernel Process: Received process 3 PID: %d\n", process3_id);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        // clk++;
-        //kill(disk_id,SIGUSR2);
-        //kill(processid,SIGUSR2);
-        // Receive message from pro
     while (1)
     {
         sleep(1);
 
         kill(disk_id,SIGUSR2);
-        kill(processid,SIGUSR2);
+        kill(process1_id,SIGUSR2);
+        kill(process2_id,SIGUSR2);
+        kill(process3_id,SIGUSR2);
         clk++;
 
         printf("%d \n",clk); 
@@ -280,7 +265,5 @@ int main()
 
     // Close the log file when done
     fclose(log_file);
-
-
     return 0;
 }
