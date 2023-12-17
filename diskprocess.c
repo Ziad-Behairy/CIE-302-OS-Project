@@ -58,7 +58,7 @@ bool addMessage(Storage *storage, const char *message) {
 }
 bool deleteMessage(Storage *storage, const char *slotIndexchar) {
 
-    char justslotIndex=slotIndexchar[2];
+    char justslotIndex=slotIndexchar[3];
 
     int slotIndex = justslotIndex-'0' ; // Convert the whole string to an integer
     if (slotIndex < 0 || slotIndex >= MAX_SLOTS) {
